@@ -1,83 +1,67 @@
-
-
-# !pip install flask
-# !pip install flask_cors
-# !pip install requests
-# !pip install urllib.request
-# !pip install logging
-# !pip install pymongo
-
-from  flask import Flask ,request,render_template,jsonify
+from flask import Flask, render_template, request,jsonify
 from flask_cors import CORS,cross_origin
 import requests
 from bs4 import BeautifulSoup as bs
-from urllib.request import urlopen as ureq
+from urllib.request import urlopen
 import logging
 import pymongo
-logging.basicConfig(filename="scrapper.log",level=logging.INFO)
+import pandas as pd
+logging.basicConfig(filename="scrapper.log" , level=logging.INFO)
 
 app=Flask(__name__)
-@app.route("/")
+
+@app.route("/",methods=["GET"])
 def homepage():
     return render_template("index.html")
-
-
+@app.route("/review",methods = ["POST","GET"])
 def index():
     if request.method == "POST":
         try:
-            custsearch= request.form['content'].replace(" ","")
-            flipcart="https://www.flipkart.com/search?q="+custsearch
-            flipcart1=ureq(flipcart)
-            flipcart_page=flipcart1.read()
-            flipcart1.close()
-            flipcart_html=bs(flipcart_page,"html.parser")
-            bigboxes = flipkart_html.findAll("div", {"class": "_1AtVbE col-12-12"})
-            box = bigboxes[0]
-            product="https://www.flipkart.com/search?q="+bigboxes[0].div.div.div.a["href"]
-            prodres=requests.get(product)
-            prodres.encoding='utf-8'
-            prod_html=bs(prodres.text,"html.parser")
-            commentboxes=prod_html.find_all("div",{"class":"col _2wzgFH"})
+            item_search=request.form['content'].replace(" ","")    # taken input of item get here.
+            # search homepage of product
+            flipkart_search="https://www.flipkart.com/search?q="
+            search_pagehome=flipkart_search+item_search # url for search page 
+            home_page_product=urlopen(search_pagehome)   # open here url
+            home_page_html=bs(home_page_product.read(),"html.parser")  # parsed open homepage in html code
+            boxes=home_page_html.find_all('div',{"class":"_2kHMtA"})  # taken boxes of product and than taken first product
+            box=boxes[0]
+            product_url_home=box.a['href']                       # taken link of open first product page
+            first_product=flipkart_search+product_url_home        # make url for open first product page
+            product_page=urlopen(first_product)                           # opened first product page
+            product_page_html=bs(product_page.read(),"html.parser")       # taken first product html code 
+            comment_boxes=product_page_html.find_all("div",{"class":"col _2wzgFH"})      #taken all commentboxes
+            
+            reviews=[]                          #we have taken a blank list for append all values received.
+            
+            
+            # now we put here function of getting all values.
+            for i in range(len(comment_boxes)):
+                try:
+                    rating=comment_boxes[i].text[0]
+                    commenthead=comment_boxes[i].div.p.text
+                    comment=comment_boxes[i].find("div",{"class":"t-ZTKy"}).div.div.text
+                    name=comment_boxes[i].find("p", {"class":"_2sc7ZR _2V5EHH"}).text
+                except Exception as e:
+                    logging.info(e)
 
-            filename=custsearch+".csv"
-            fw=open(filename,"w")
-            headers="Product,Customer Name,Ratings,Heading,Comment \n"
-            fw.write(headers)
-            reviews=[]
-            for commentbox in commentboxes:
-                try:
-                    product_name=prod_html.find_all("span",{"class":"B_NuCI"})[0].text
-                except:
-                    logging.info("name")
-                try:
-                    rating=commentbox.div.div.text
-                except:
-                    rating="no rating"
-                    logging.info(rating)
-                try:
-                    commenthead=commentbox.div.p.text
-                except:
-                    commenthead="no comment"
-                    logging.log(commenthead)
-                try:
-                    comtag=commentbox.find_all('div',{"class":""})[0].text
-                except:
-                    comtag="no comments "
-                    logging.log(comtag)
-                mydict={"Product":custsearch,"Name":product_name,"Rating":rating,"CommentHead":commenthead,"Comment":comtag}
+                mydict = {"Product": item_search, "Name": name, "Rating": rating, "CommentHead": commenthead,"Comment": comment}
                 reviews.append(mydict)
-            logging.info("log my final result {}".format(reviews))
-
-
-            return render_template("result.html",reviews[0:len(review)-1])
+                    
+            logging.info("log my final result".format(reviews))
+            
+            df = pd.DataFrame(reviews)
+            df.to_csv(f"{item_search}.csv",index=False)
+            
+            return render_template('result.html', reviews=reviews[0:len(reviews)-1])
         except Exception as e:
             logging.info(e)
-            return "something is wrong"
+            print(e,"something went wrong")
     else:
         return render_template("index.html")
-
-if __name__=="__main__":
+            
+if __name__ == "__main__":
     app.run(host="0.0.0.0")
+            
 
         
         

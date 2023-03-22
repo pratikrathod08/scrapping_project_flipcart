@@ -5,3 +5,4 @@ pymongo
 logging
 bs4
 urllib
+pandas

@@ -11,9 +11,11 @@ logging.basicConfig(filename="scrapper.log" , level=logging.INFO)
 app=Flask(__name__)
 
 @app.route("/",methods=["GET"])
+@cross_origin()
 def homepage():
     return render_template("index.html")
 @app.route("/review",methods = ["POST","GET"])
+@cross_origin()
 def index():
     if request.method == "POST":
         try:
@@ -33,7 +35,7 @@ def index():
             
             reviews=[]                          #we have taken a blank list for append all values received.
             
-            
+           
             # now we put here function of getting all values.
             for i in range(len(comment_boxes)):
                 try:
@@ -48,6 +50,11 @@ def index():
                 reviews.append(mydict)
                     
             logging.info("log my final result".format(reviews))
+
+            client = pymongo.MongoClient("mongodb+srv://08Pratik:08Pratik@cluster0.vd8ss6z.mongodb.net/?retryWrites=true&w=majority")
+            db = client['web_scrapping']
+            coll_scrapping=db['flipkart']
+            coll_scrapping.insert_many(reviews)
             
             df = pd.DataFrame(reviews)
             df.to_csv(f"{item_search}.csv",index=False)
